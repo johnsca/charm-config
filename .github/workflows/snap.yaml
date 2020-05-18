@@ -1,0 +1,15 @@
+name: Build Snap
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: jhenstridge/snapcraft-build-action@v1
+      id: snapcraft
+    - uses: actions/upload-artifact@v1
+      with:
+        name: charm-config.snap
+        path: ${{ steps.snapcraft.outputs.snap }}
