@@ -1,0 +1,18 @@
+name: charm-config
+version: '1.0.0'
+summary: Plugin for charm snap to view config for a charm in the store.
+description: |
+  Adds a `charm config` subcommand which can read config info for a charm
+  in the store and present it in a friendly way.  Requires the charm snap.
+base: core18
+confinement: classic
+
+parts:
+  charm-config:
+    plugin: python
+    python-version: python3
+    source: .
+
+apps:
+  charm-config:
+    command: $SNAP/bin/charm-config
