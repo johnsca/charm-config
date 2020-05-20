@@ -73,10 +73,10 @@ class ConfigTest(TestCase):
                    return_value=(64, 0)):
             actual = config._tabular_formatter(self.charm_config)
         expected = (
-            "Option   Value                           Type     Description",
-            "-------------------------------------------------------------",
-            "foo      True                            boolean  Does the fo...",
-            "qux-url  'https://qux.io/with-a-lon'...  string   URL to find...",
+            "Option   Type     Default Value                   Description   ",
+            "----------------------------------------------------------------",
+            "foo      boolean  True                            Does the fo...",
+            "qux-url  string   'https://qux.io/with-a-lon'...  URL to find...",
         )
         for i in range(len(expected)):
             self.assertEqual(actual[i], expected[i])

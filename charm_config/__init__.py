@@ -44,7 +44,7 @@ class Config:
                             choices=['stable', 'candidate', 'beta',
                                      'edge', 'unpublished'],
                             help='the channel of the charm or bundle to use')
-        parser.add_argument('option_names', nargs='*',
+        parser.add_argument('option_names', nargs='*', default=[],
                             help='name of option(s) to include')
         parser.add_argument('-a', '--agent', nargs=1,
                             help='name of file containing agent login details')
@@ -52,10 +52,27 @@ class Config:
                             help='user:passwd to use for basic HTTP '
                                  'authentication')
         parser.add_argument('-f', '--format', default='tabular',
-                            choices=['tabular', 'yaml', 'json', 'value'],
+                            choices=['tabular', 'yaml', 'json', 'value',
+                                     'description'],
                             help='format for output')
-        parser.add_argument('--description', action=Description)
-        return parser.parse_args(args)
+        parser.add_argument('-v', '--value', action='store_const',
+                            const='value', dest='format',
+                            help='just show the default value '
+                                 '(same as -f=value)')
+        parser.add_argument('-d', '--desc', action='store_const',
+                            const='description', dest='format',
+                            help='show the full option description '
+                                 '(same as -f=description)')
+        parser.add_argument('--description', action=Description,
+                            help='print the usage description and exit')
+        # Make a pre-pass with parse_known_args to work around the fact
+        # that `arg -opt arg` will fail with "unrecognized arg" on the second
+        # arg.  See: https://bugs.python.org/issue15112
+        opts, extra = parser.parse_known_args(args)
+        if extra:
+            parser.set_defaults(**opts.__dict__)
+            opts = parser.parse_args([opts.charm] + extra)
+        return opts
 
     def _filter(self, data):
         if self.option_names:
@@ -86,22 +103,31 @@ class Config:
         opts = self.option_names or sorted(data.keys())
         return [str(data[opt]['Default']) for opt in opts]
 
+    def _description_formatter(self, data):
+        opts = self.option_names or sorted(data.keys())
+        if len(opts) > 1:
+            return ['{}\n-----------\n{}'.format(opt, data[opt]['Description'])
+                    for opt in opts]
+        else:
+            return [data[opt]['Description'].strip() for opt in opts]
+
     def _tabular_formatter(self, data):
         try:
             from shutil import get_terminal_size
             width = get_terminal_size(fallback=(120, 0))[0]
         except ImportError:
             width = 120
-        opt_width = max(len(opt) for opt in data.keys())
-        val_width = min(max(len(repr(opt['Default']))
-                            for opt in data.values()), 30)
+        opt_width = max(max(len(opt) for opt in data.keys()), 6)
+        val_width = max(min(max(len(repr(opt['Default']))
+                                for opt in data.values()),
+                            30), 13)
         max_dsc_width = width - opt_width - val_width - 13
-        dsc_width = min(max(len(opt['Description'].strip())
-                            for opt in data.values()), max_dsc_width)
-        fmt = '{{:{}}}  {{:{}}}  {{:7}}  {{:{}}}'.format(opt_width,
+        dsc_width = max(min(max(len(opt['Description'].strip())
+                                for opt in data.values()), max_dsc_width), 11)
+        fmt = '{{:{}}}  {{:7}}  {{:{}}}  {{:{}}}'.format(opt_width,
                                                          val_width,
                                                          dsc_width)
-        headers = fmt.format('Option', 'Value', 'Type', 'Description').strip()
+        headers = fmt.format('Option', 'Type', 'Default Value', 'Description')
         lines = [headers, '-' * len(headers)]
         for opt, info in sorted(data.items()):
             value = repr(info['Default'])
@@ -115,8 +141,8 @@ class Config:
                 desc = desc[:max_dsc_width-3] + '...'
             lines.append(fmt.format(
                 opt,
-                value,
                 info['Type'],
+                value,
                 desc,
             ).strip())
         return lines
